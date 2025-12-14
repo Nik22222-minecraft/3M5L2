@@ -21,18 +21,23 @@ def handle_help(message):
         "/show_my_cities — показать все сохранённые города"
     )
 
-@bot.message_handler(commands=['show_city'])
-def handle_show_city(message):
+@bot.message_handler(commands=['set_color'])
+def handle_set_color(message):
     parts = message.text.split()
     if len(parts) < 2:
-        bot.send_message(message.chat.id, "Напиши название города после команды.")
+        bot.send_message(
+            message.chat.id,
+            "Используй: /set_color red|blue|green|purple"
+        )
         return
 
-    city_name = parts[1]
-    path = "city.png"
+    color = parts[1].lower()
+    manager.set_color(message.chat.id, color)
+    bot.send_message(
+        message.chat.id,
+        f"Цвет маркеров установлен: {color} 🎨"
+    )
 
-    manager.create_graph(path, [city_name])
-    bot.send_photo(message.chat.id, open(path, "rb"))
 
 @bot.message_handler(commands=['remember_city'])
 def handle_remember_city(message):
@@ -59,13 +64,13 @@ def handle_remember_city(message):
 @bot.message_handler(commands=['show_my_cities'])
 def handle_show_visited_cities(message):
     cities = manager.select_cities(message.chat.id)
-
     if not cities:
-        bot.send_message(message.chat.id, "У тебя пока нет сохранённых городов.")
+        bot.send_message(message.chat.id, "Список городов пуст.")
         return
 
+    color = manager.get_color(message.chat.id)
     path = "my_cities.png"
-    manager.create_graph(path, cities)
+    manager.create_graph(path, cities, color)
     bot.send_photo(message.chat.id, open(path, "rb"))
 
 if __name__ == "__main__":

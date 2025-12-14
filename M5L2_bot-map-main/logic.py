@@ -4,76 +4,94 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 
 class DB_Map():
     def __init__(self, database):
         self.database = database
-    
+
     def create_user_table(self):
         conn = sqlite3.connect(self.database)
         with conn:
-            conn.execute('''CREATE TABLE IF NOT EXISTS users_cities (
-                                user_id INTEGER,
-                                city_id TEXT,
-                                FOREIGN KEY(city_id) REFERENCES cities(id)
-                            )''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS users_cities (
+                    user_id INTEGER,
+                    city_id TEXT
+                )
+            ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS users_settings (
+                    user_id INTEGER PRIMARY KEY,
+                    color TEXT
+                )
+            ''')
             conn.commit()
 
-    def add_city(self, user_id, city_name):
+    # ---------- НАСТРОЙКИ ПОЛЬЗОВАТЕЛЯ ----------
+    def set_color(self, user_id, color):
+        conn = sqlite3.connect(self.database)
+        with conn:
+            conn.execute('''
+                INSERT OR REPLACE INTO users_settings
+                VALUES (?, ?)
+            ''', (user_id, color))
+            conn.commit()
+
+    def get_color(self, user_id):
         conn = sqlite3.connect(self.database)
         with conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id FROM cities WHERE city=?", (city_name,))
-            city_data = cursor.fetchone()
-            if city_data:
-                city_id = city_data[0]
-                conn.execute(
-                    'INSERT INTO users_cities VALUES (?, ?)',
-                    (user_id, city_id)
-                )
-                conn.commit()
-                return 1
-            else:
-                return 0
+            cursor.execute(
+                "SELECT color FROM users_settings WHERE user_id=?",
+                (user_id,)
+            )
+            res = cursor.fetchone()
+            return res[0] if res else "red"
 
-    def select_cities(self, user_id):
-        conn = sqlite3.connect(self.database)
-        with conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT cities.city
-                FROM users_cities
-                JOIN cities ON users_cities.city_id = cities.id
-                WHERE users_cities.user_id = ?
-            ''', (user_id,))
-            return [row[0] for row in cursor.fetchall()]
-
+    # ---------- ГОРОДА ----------
     def get_coordinates(self, city_name):
         conn = sqlite3.connect(self.database)
         with conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                SELECT lat, lng
-                FROM cities
-                WHERE city = ?
-            ''', (city_name,))
+            cursor.execute(
+                "SELECT lat, lng FROM cities WHERE city=?",
+                (city_name,)
+            )
             return cursor.fetchone()
 
-    # ОСНОВНАЯ ФУНКЦИЯ
-    def create_graph(self, path, cities):
-        fig = plt.figure(figsize=(12, 6))
+    def create_graph(self, path, cities, color="red"):
+        fig = plt.figure(figsize=(13, 7))
         ax = plt.axes(projection=ccrs.PlateCarree())
+
+        # 🌍 ЗАЛИВКА КОНТИНЕНТОВ И ОКЕАНОВ
+        ax.add_feature(cfeature.OCEAN, facecolor="#a6cee3")
+        ax.add_feature(cfeature.LAND, facecolor="#b2df8a")
+        ax.add_feature(cfeature.COASTLINE)
+        ax.add_feature(cfeature.BORDERS, linestyle=':')
+        ax.add_feature(cfeature.RIVERS)
+
         ax.set_global()
-        ax.coastlines()
         ax.gridlines(draw_labels=True)
 
+        # 📍 ГОРОДА
         for city in cities:
             coords = self.get_coordinates(city)
             if coords:
                 lat, lng = coords
-                ax.plot(lng, lat, 'ro', markersize=5)
-                ax.text(lng + 1, lat + 1, city, fontsize=9)
+                ax.plot(
+                    lng, lat,
+                    marker="o",
+                    color=color,
+                    markersize=7,
+                    transform=ccrs.PlateCarree()
+                )
+                ax.text(
+                    lng + 1,
+                    lat + 1,
+                    city,
+                    fontsize=9
+                )
 
         plt.savefig(path)
         plt.close()
