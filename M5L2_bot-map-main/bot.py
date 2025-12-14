@@ -12,7 +12,7 @@ def start(message):
     bot.send_message(
         message.chat.id,
         "Привет! 🌍 Я бот с картами городов.\n"
-        "Напиши /help"
+        "Команды: /help"
     )
 
 
@@ -23,9 +23,7 @@ def help_cmd(message):
         "/show_city <city>\n"
         "/show_country <country>\n"
         "/show_population <число>\n"
-        "/show_country_population <country> <число>\n"
-        "/set_color <color>\n"
-        "/weather <city>"
+        "/set_color <color>"
     )
 
 
@@ -33,7 +31,7 @@ def help_cmd(message):
 def set_color(message):
     color = message.text.split()[-1]
     manager.set_color(message.chat.id, color)
-    bot.send_message(message.chat.id, f"Цвет установлен: {color} 🎨")
+    bot.send_message(message.chat.id, f"Цвет маркеров: {color}")
 
 
 @bot.message_handler(commands=["show_city"])
@@ -64,25 +62,6 @@ def show_population(message):
     path = "population.png"
     manager.create_graph(path, cities, manager.get_color(message.chat.id))
     bot.send_photo(message.chat.id, open(path, "rb"))
-
-
-@bot.message_handler(commands=["show_country_population"])
-def show_country_population(message):
-    parts = message.text.split()
-    country = parts[1]
-    pop = int(parts[2])
-
-    cities = manager.get_cities_by_country_population(country, pop)
-    path = "mix.png"
-    manager.create_graph(path, cities, manager.get_color(message.chat.id))
-    bot.send_photo(message.chat.id, open(path, "rb"))
-
-
-@bot.message_handler(commands=["weather"])
-def weather(message):
-    city = message.text.split()[-1]
-    w = manager.get_weather(city)
-    bot.send_message(message.chat.id, f"🌦 Погода в {city}: {w}")
 
 
 if __name__ == "__main__":

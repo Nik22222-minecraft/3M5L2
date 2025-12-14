@@ -1,2 +1,2 @@
-DATABASE = 'database.db'
-TOKEN = ''
+TOKEN = ""
+DATABASE = "database.db"
