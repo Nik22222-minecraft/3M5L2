@@ -1,79 +1,89 @@
 import telebot
-from config import *
-from logic import *
+from config import TOKEN, DATABASE
+from logic import DB_Map
 
 bot = telebot.TeleBot(TOKEN)
+manager = DB_Map(DATABASE)
+manager.create_tables()
 
-@bot.message_handler(commands=['start'])
-def handle_start(message):
+
+@bot.message_handler(commands=["start"])
+def start(message):
     bot.send_message(
         message.chat.id,
-        "Привет! 🌍 Я бот, который показывает города на карте.\n"
-        "Напиши /help для списка команд."
+        "Привет! 🌍 Я бот с картами городов.\n"
+        "Напиши /help"
     )
 
-@bot.message_handler(commands=['help'])
-def handle_help(message):
+
+@bot.message_handler(commands=["help"])
+def help_cmd(message):
     bot.send_message(
         message.chat.id,
-        "/show_city <city> — показать город на карте\n"
-        "/remember_city <city> — сохранить город\n"
-        "/show_my_cities — показать все сохранённые города"
+        "/show_city <city>\n"
+        "/show_country <country>\n"
+        "/show_population <число>\n"
+        "/show_country_population <country> <число>\n"
+        "/set_color <color>\n"
+        "/weather <city>"
     )
 
-@bot.message_handler(commands=['set_color'])
-def handle_set_color(message):
-    parts = message.text.split()
-    if len(parts) < 2:
-        bot.send_message(
-            message.chat.id,
-            "Используй: /set_color red|blue|green|purple"
-        )
-        return
 
-    color = parts[1].lower()
+@bot.message_handler(commands=["set_color"])
+def set_color(message):
+    color = message.text.split()[-1]
     manager.set_color(message.chat.id, color)
-    bot.send_message(
-        message.chat.id,
-        f"Цвет маркеров установлен: {color} 🎨"
-    )
+    bot.send_message(message.chat.id, f"Цвет установлен: {color} 🎨")
 
 
-@bot.message_handler(commands=['remember_city'])
-def handle_remember_city(message):
-    parts = message.text.split()
-    if len(parts) < 2:
-        bot.send_message(message.chat.id, "Напиши название города.")
-        return
-
-    city_name = parts[1]
-    user_id = message.chat.id
-
-    if manager.add_city(user_id, city_name):
-        bot.send_message(
-            message.chat.id,
-            f"Город {city_name} успешно сохранён ✅"
-        )
-    else:
-        bot.send_message(
-            message.chat.id,
-            "Я не знаю такой город 😢\n"
-            "Проверь, что он написан на английском."
-        )
-
-@bot.message_handler(commands=['show_my_cities'])
-def handle_show_visited_cities(message):
-    cities = manager.select_cities(message.chat.id)
-    if not cities:
-        bot.send_message(message.chat.id, "Список городов пуст.")
-        return
-
+@bot.message_handler(commands=["show_city"])
+def show_city(message):
+    city = message.text.split()[-1]
+    path = "city.png"
     color = manager.get_color(message.chat.id)
-    path = "my_cities.png"
-    manager.create_graph(path, cities, color)
+
+    manager.create_graph(path, [city], color)
     bot.send_photo(message.chat.id, open(path, "rb"))
 
+
+@bot.message_handler(commands=["show_country"])
+def show_country(message):
+    country = message.text.split()[-1]
+    cities = manager.get_cities_by_country(country)
+
+    path = "country.png"
+    manager.create_graph(path, cities, manager.get_color(message.chat.id))
+    bot.send_photo(message.chat.id, open(path, "rb"))
+
+
+@bot.message_handler(commands=["show_population"])
+def show_population(message):
+    pop = int(message.text.split()[-1])
+    cities = manager.get_cities_by_population(pop)
+
+    path = "population.png"
+    manager.create_graph(path, cities, manager.get_color(message.chat.id))
+    bot.send_photo(message.chat.id, open(path, "rb"))
+
+
+@bot.message_handler(commands=["show_country_population"])
+def show_country_population(message):
+    parts = message.text.split()
+    country = parts[1]
+    pop = int(parts[2])
+
+    cities = manager.get_cities_by_country_population(country, pop)
+    path = "mix.png"
+    manager.create_graph(path, cities, manager.get_color(message.chat.id))
+    bot.send_photo(message.chat.id, open(path, "rb"))
+
+
+@bot.message_handler(commands=["weather"])
+def weather(message):
+    city = message.text.split()[-1]
+    w = manager.get_weather(city)
+    bot.send_message(message.chat.id, f"🌦 Погода в {city}: {w}")
+
+
 if __name__ == "__main__":
-    manager = DB_Map(DATABASE)
-    manager.create_user_table()
     bot.polling()
